@@ -1,0 +1,382 @@
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+}
+
+body {
+    background: #050827;
+    color: #f5f5f5;
+    font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* TOP BAR */
+.topbar {
+    margin: 15px;
+    padding: 14px 20px;
+    border-radius: 14px;
+    background: radial-gradient(circle at top left, #1b2af5, #050827 60%);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+}
+
+.topbar-left {
+    display: flex;
+    flex-direction: column;
+}
+
+.topbar-title {
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.topbar-subtitle {
+    font-size: 13px;
+    color: #c1c8f0;
+}
+
+.topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.topbar-badge {
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(5, 8, 39, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #d5ddff;
+}
+
+.btn-export-dashboard {
+    border: none;
+    border-radius: 999px;
+    padding: 8px 18px;
+    background: linear-gradient(135deg, #ffb400, #ff6b3d);
+    color: #101012;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+    transition: transform .12s ease, box-shadow .12s ease, filter .12s ease;
+}
+
+.btn-export-dashboard:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.05);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.45);
+}
+
+/* ========= BARRA DE FILTROS DO DASHBOARD ========= */
+/* você não quer mais esses filtros na tela, então some com o wrapper inteiro */
+.dashboard-filters-wrapper {
+    display: none !important;
+}
+
+/* se algum dia quiser reativar, é só tirar o display:none acima
+   e o bloco abaixo continua bonitinho */
+.dashboard-filters {
+    background: #0b103b;
+    border-radius: 10px;
+    padding: 10px 14px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 10px 16px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    min-width: 160px;
+    max-width: 220px;
+}
+
+.filter-group label {
+    font-size: 11px;
+    font-weight: 500;
+    margin-bottom: 4px;
+    color: #e5e7ff;
+}
+
+.filter-select {
+    border-radius: 6px;
+    border: 1px solid #1f2937;
+    background: #020617;
+    color: #e5e7eb;
+    padding: 6px 8px;
+    font-size: 12px;
+}
+
+.filter-select:focus {
+    outline: none;
+    border-color: #4b7dff;
+    box-shadow: 0 0 0 1px rgba(75, 125, 255, 0.5);
+}
+
+.btn-apply-dash {
+    padding: 7px 16px;
+    border-radius: 999px;
+    border: 1px solid #22c55e;
+    background: #22c55e;
+    color: #022c22;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.1s ease;
+    white-space: nowrap;
+}
+
+.btn-apply-dash:hover {
+    background: #16a34a;
+    transform: translateY(-1px);
+}
+
+/* ========= DASHBOARD / CARDS / GRÁFICOS ========= */
+
+.dashboard-wrapper {
+    max-width: 1400px;
+    margin: 0 auto 15px;
+    padding: 0 15px 15px;
+}
+
+.dashboard-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    align-items: stretch;
+}
+
+.card-dashboard {
+    background: #0b103b;
+    border-radius: 14px;
+    padding: 16px 20px;
+    flex: 1 1 0;
+    min-width: 280px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    display: flex;
+    flex-direction: column;
+}
+
+.card-dashboard h3,
+.card-dashboard h4 {
+    margin-top: 0;
+    margin-bottom: 6px;
+    font-weight: 600;
+}
+
+.kpi-value {
+    font-size: 36px;
+    font-weight: 700;
+    color: #ffb400;
+}
+
+.kpi-sub {
+    font-size: 13px;
+    color: #b5bed8;
+}
+
+.kpi-time {
+    font-size: 24px;
+    font-weight: 600;
+    color: #a855ff;
+}
+
+/* Altura dos gráficos – deixa tudo uniforme e bem visível */
+.chart-container {
+    width: 100%;
+    height: 230px;
+    margin-top: 10px;
+}
+
+@media (max-width: 1024px) {
+    .chart-container {
+        height: 260px;
+    }
+}
+
+/* ========= PAINEL LATERAL DE EXPORTAÇÃO ========= */
+.export-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s ease;
+    z-index: 1900;
+}
+
+.export-panel {
+    position: fixed;
+    top: 0;
+    right: -360px;
+    width: 360px;
+    height: 100vh;
+    background: #060826;
+    box-shadow: -10px 0 30px rgba(0, 0, 0, 0.65);
+    transition: right .25s ease;
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+}
+
+.export-panel.open {
+    right: 0;
+}
+
+.export-backdrop.show {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.export-panel-header {
+    padding: 16px 18px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.export-panel-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.export-close {
+    border: none;
+    background: transparent;
+    color: #aeb4ff;
+    font-size: 20px;
+    cursor: pointer;
+}
+
+.export-panel-body {
+    padding: 16px 18px 20px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.export-group {
+    margin-bottom: 14px;
+}
+
+.export-group label {
+    display: block;
+    font-size: 13px;
+    margin-bottom: 4px;
+    color: #e0e4ff;
+}
+
+.export-group small {
+    font-size: 11px;
+    color: #8186ba;
+}
+
+.export-input {
+    width: 100%;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(9, 12, 54, 0.8);
+    padding: 6px 8px;
+    font-size: 13px;
+    color: #f5f5ff;
+}
+
+.export-input:focus {
+    outline: none;
+    border-color: #4b7dff;
+    box-shadow: 0 0 0 1px rgba(75, 125, 255, 0.5);
+}
+
+.export-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.btn-primary-export,
+.btn-secondary-export {
+    width: 100%;
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: transform .12s ease, box-shadow .12s ease, filter .12s ease;
+}
+
+.btn-primary-export {
+    background: linear-gradient(135deg, #ffb400, #ff6b3d);
+    color: #101012;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.4);
+}
+
+.btn-secondary-export {
+    background: rgba(12, 20, 88, 0.9);
+    color: #e0e4ff;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.btn-primary-export:hover,
+.btn-secondary-export:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.03);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.5);
+}
+
+/* ========= GRID DARK BONITO ========= */
+#myGrid {
+    height: 500px;
+    margin: 15px;
+}
+
+.ag-theme-alpine {
+    --ag-background-color: #050827;
+    --ag-header-background-color: #0b103b;
+    --ag-foreground-color: #f5f5f5;
+    --ag-border-color: #151a3a;
+    --ag-odd-row-background-color: #070b30;
+    --ag-row-hover-color: #111648;
+    --ag-header-foreground-color: #e5e8ff;
+    --ag-font-size: 12px;
+    --ag-font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.ag-theme-alpine .ag-header-cell-label {
+    justify-content: center;
+    font-weight: 600;
+}
+
+.ag-theme-alpine .ag-row {
+    transition: background-color .15s ease;
+}
+
+/* ========= RESPONSIVO ========= */
+@media (max-width: 768px) {
+    .topbar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 9px;
+    }
+
+    .topbar-right {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .dashboard-row {
+        flex-direction: column;
+    }
+
+    .card-dashboard {
+        min-width: 100%;
+    }
+}
