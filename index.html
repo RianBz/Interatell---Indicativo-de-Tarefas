@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <title>Relatório de Tarefas</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+
+    <script type="text/javascript">
+        var themeName = location.hash || 'material';
+        themeName = themeName.replace('#', '');
+        window.ripple = (themeName === "material");
+        document.write('<link href="./dist/' + themeName + '.css" rel="stylesheet">');
+    </script>
+
+    <!-- AG Grid -->
+    <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.2/dist/ag-grid-community.min.noStyle.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.2/styles/ag-grid.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.2/styles/ag-theme-alpine.css" />
+
+    <!-- Bootstrap -->
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" />
+
+    <!-- Loader -->
+    <link href="./loader.css" rel="stylesheet" />
+
+    <!-- ECharts (dashboard) -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+
+    <!-- Estilo simples da barra de progresso de exportação -->
+    <style>
+        .export-progress {
+            margin-top: 10px;
+        }
+
+        .export-progress-bar-outer {
+            width: 100%;
+            height: 6px;
+            background-color: #e5e7eb;
+            border-radius: 999px;
+            overflow: hidden;
+            margin-bottom: 4px;
+        }
+
+        .export-progress-bar-inner {
+            width: 0%;
+            height: 100%;
+            background-color: #3b82f6;
+            transition: width 0.2s ease-out;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- TOP BAR -->
+    <header class="topbar">
+        <div class="topbar-left">
+            <div class="topbar-title">Relatório de Tarefas</div>
+            <div class="topbar-subtitle">Visão geral dos atendimentos</div>
+        </div>
+        <div class="topbar-right">
+            <button id="btn-open-export" class="btn-export-dashboard">
+                Exportar
+            </button>
+        </div>
+    </header>
+
+    <!-- BARRA DE FILTROS DO DASHBOARD -->
+    <section class="dashboard-filters-wrapper">
+        <div class="dashboard-filters">
+            <div class="filter-group">
+                <label for="dash-status">Status (Dashboard)</label>
+                <select id="dash-status" class="filter-select">
+                    <option value="all">Todos</option>
+                    <option value="open">Somente em andamento</option>
+                    <option value="closed">Somente concluídos</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="dash-responsavel">Responsável (Dashboard)</label>
+                <select id="dash-responsavel" class="filter-select">
+                    <option value="all">Todos</option>
+                    <!-- se quiser, pode popular via JS depois -->
+                </select>
+            </div>
+        </div>
+    </section>
+
+    <!-- Painel lateral de filtros & exportação -->
+    <div id="export-backdrop" class="export-backdrop"></div>
+
+    <aside id="export-panel" class="export-panel">
+        <div class="export-panel-header">
+            <h3>Exportar Relatório</h3>
+            <button id="btn-close-export" class="export-close">&times;</button>
+        </div>
+
+        <div class="export-panel-body">
+            <div class="export-group">
+                <label>Período</label>
+                <select id="export-period" class="export-input">
+                    <option value="all">Tudo carregado</option>
+                </select>
+                <small>O app já carrega por padrão os últimos 120 dias.</small>
+            </div>
+
+            <div class="export-group">
+                <label>Status</label>
+                <select id="export-status" class="export-input">
+                    <option value="open">Somente em andamento</option>
+                    <option value="closed">Somente concluídos</option>
+                </select>
+            </div>
+
+            <div class="export-group">
+                <label>Responsável</label>
+                <!-- agora MULTISELECT -->
+                <select id="export-responsavel" class="export-input" multiple>
+                    <option value="all">Todos</option>
+                    <!-- opções são preenchidas via JS -->
+                </select>
+                <small>Segure Ctrl/Cmd para selecionar mais de um.</small>
+            </div>
+
+            <div class="export-actions">
+                <button id="btn-apply-filters" class="btn-secondary-export">
+                    Calcular quantidade para exportação
+                </button>
+
+                <!-- NOVOS BOTÕES: CSV + XLSX -->
+                <button id="btn-export-csv" class="btn-primary-export">
+                    Exportar CSV
+                </button>
+                <button id="btn-export-xlsx" class="btn-primary-export" style="margin-left: 6px;">
+                    Exportar XLSX
+                </button>
+
+                <small id="export-count-info" style="display:block; margin-top:6px; font-size: 11px; color: #4b5563;">
+                    Registros para exportar: <strong id="export-count">-</strong>
+                </small>
+            </div>
+
+            <!-- BARRA DE PROGRESSO DE EXPORTAÇÃO -->
+            <div id="export-progress" class="export-progress" style="display: none;">
+                <div class="export-progress-bar-outer">
+                    <div id="export-progress-bar" class="export-progress-bar-inner"></div>
+                </div>
+                <small id="export-progress-text" style="font-size: 11px; color: #374151;">
+                    Preparando exportação...
+                </small>
+            </div>
+        </div>
+    </aside>
+
+    <!-- DASHBOARD -->
+    <div class="dashboard-wrapper">
+        <div class="dashboard-row">
+            <!-- Card 1: Chamados em aberto + gráfico por mês -->
+            <div class="card-dashboard">
+                <h3>Atendimentos em Aberto</h3>
+                <div class="kpi-value" id="kpi-abertos">0</div>
+                <div class="kpi-sub">Chamados em aberto por mês (ano atual)</div>
+                <div id="chart-open-by-month" class="chart-container"></div>
+            </div>
+
+            <!-- Card 2: Tipo de tarefa + tempo gasto -->
+            <div class="card-dashboard">
+                <h3>Tipo de Tarefa</h3>
+                <div class="kpi-sub">Distribuição por tipo (em aberto)</div>
+                <div id="chart-type" class="chart-container"></div>
+                <h4 style="margin-top: 10px;">Tempo Gasto</h4>
+                <div class="kpi-time" id="kpi-tempo-gasto">00:00:00</div>
+            </div>
+
+            <!-- Card 3: Tarefas em aberto por responsável -->
+            <div class="card-dashboard">
+                <h3>Total em Aberto por Responsável</h3>
+                <div class="kpi-sub">Top responsáveis (chamados em aberto)</div>
+                <div id="chart-responsavel" class="chart-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loader -->
+    <div class="row">
+        <div class="col-md-2 col-md-offset-5">
+            <div class="loader" style="z-index: 1000; position: absolute; display: none;" id="loader-1"></div>
+        </div>
+    </div>
+
+    <!-- Grid de detalhes -->
+    <div id="myGrid" class="ag-theme-alpine"></div>
+
+    <!-- Scripts -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"
+        integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+        crossorigin="anonymous"></script>
+    <script src="//api.bitrix24.com/api/v1/"></script>
+
+    <!-- Seus JS -->
+    <script src="bitrix24.js" type="text/javascript"></script>
+
+</body>
+
+</html>
