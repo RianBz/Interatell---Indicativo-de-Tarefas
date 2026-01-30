@@ -84,7 +84,9 @@ $(document).ready(function () {
         if (!panel || !backdrop) return;
         panel.classList.add('open');
         backdrop.classList.add('show');
-        populateExportResponsavel(dataSourceTasks); // base: abertas
+
+        // padrão: abre com base "abertas"
+        populateExportResponsavel(dataSourceTasks);
     }
 
     function closeExportPanel() {
@@ -96,6 +98,25 @@ $(document).ready(function () {
     if (btnOpen) btnOpen.addEventListener('click', openExportPanel);
     if (btnClose) btnClose.addEventListener('click', closeExportPanel);
     if (backdrop) backdrop.addEventListener('click', closeExportPanel);
+
+    // ✅ NOVO: ao mudar o status do export (abertas/fechadas/todas),
+    // atualiza a lista de responsáveis com a BASE correta
+    var exportStatusEl = document.getElementById('export-status');
+    if (exportStatusEl) {
+        exportStatusEl.addEventListener('change', function () {
+            var v = this.value || 'all';
+
+            if (v === 'open') {
+                // lista de responsáveis só das abertas
+                populateExportResponsavel(dataSourceTasks);
+            } else {
+                // fechadas ou todas -> carrega base completa e popula com todos
+                loadAllTasksForExport(function (allTasks) {
+                    populateExportResponsavel(allTasks);
+                });
+            }
+        });
+    }
 
     // BOTÕES DO PAINEL DE EXPORTAÇÃO
     var btnApplyExport = document.getElementById('btn-apply-filters');
@@ -126,6 +147,9 @@ $(document).ready(function () {
             }
         });
     }
+
+    // (o restante do seu document.ready continua igual abaixo...)
+});
 
     // Clique Exportar CSV
     if (btnExportCsv) {
@@ -174,7 +198,7 @@ $(document).ready(function () {
     } else {
         console.warn('[Relatório] myGrid ou agGrid não encontrados');
     }
-});
+
 
 // =======================
 // FUNÇÃO CENTRAL: ABERTAS (para dashboard / grid)
@@ -411,102 +435,50 @@ function exportTasksToXlsx(tasks) {
     setExportProgressVisible(true);
     updateExportProgress(0, tasks.length);
 
-    var cols = [
-        "id", "title", "description", "company",
-        "pmo", "contract", "service",
-        "ufAuto793377858165", "ufAuto856888266589",
-        "status", "timeSpentInLogs",
-        "createdDate", "changedDate", "dateStart", "closedDate",
-        "createdBy", "changedBy", "responsibleName"
-    ];
+    ensureSheetJs(function () {
+        var cols = [
+            "id", "title", "description", "company",
+            "pmo", "contract", "service",
+            "ufAuto793377858165", "ufAuto856888266589",
+            "status", "timeSpentInLogs",
+            "createdDate", "changedDate", "dateStart", "closedDate",
+            "createdBy", "changedBy", "responsibleName"
+        ];
 
-    var rowsXml = '';
+        // monta AOA (linha 1 = header)
+        var aoa = [cols];
+        var total = tasks.length;
 
-    for (var i = 0; i < tasks.length; i++) {
-        var t = tasks[i];
+        for (var i = 0; i < total; i++) {
+            var t = tasks[i];
+            if (isBlockedTask(t)) continue;
 
-        // segurança extra
-        if (isBlockedTask(t)) continue;
+            var row = cols.map(function (c) {
+                var v = (t[c] !== undefined && t[c] !== null) ? t[c] : "";
+                return v; // pode ser string/number
+            });
 
-        rowsXml += '<row>';
+            aoa.push(row);
 
-        cols.forEach(function (c) {
-            var v = (t[c] !== undefined && t[c] !== null) ? String(t[c]) : "";
-            v = v.replace(/&/g, "&amp;")
-                 .replace(/</g, "&lt;")
-                 .replace(/>/g, "&gt;");
+            if ((i % 200) === 0) updateExportProgress(i + 1, total);
+        }
 
-            rowsXml += '<c t="inlineStr"><is><t>' + v + '</t></is></c>';
+        updateExportProgress(total, total);
+
+        var ws = XLSX.utils.aoa_to_sheet(aoa);
+
+        // largura de colunas (opcional)
+        ws['!cols'] = cols.map(function (c) {
+            return { wch: Math.min(40, Math.max(12, c.length + 2)) };
         });
 
-        rowsXml += '</row>';
+        var wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Relatório");
 
-        updateExportProgress(i + 1, tasks.length);
-    }
+        XLSX.writeFile(wb, "relatorio_tarefas.xlsx");
 
-    // Cabeçalho (linha de títulos)
-    var headerRowXml =
-        '<row>' +
-        cols.map(function (c) {
-            return '<c t="inlineStr"><is><t>' + c + '</t></is></c>';
-        }).join('') +
-        '</row>';
-
-    // XML principal da planilha
-    var sheetXml =
-        '<?xml version="1.0"?>' +
-        '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
-        '<sheetData>' +
-        headerRowXml +
-        rowsXml +
-        '</sheetData>' +
-        '</worksheet>';
-
-    // workbook
-    var workbookXml =
-        '<?xml version="1.0"?>' +
-        '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" ' +
-        ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
-        '<sheets><sheet name="Relatório" sheetId="1" r:id="rId1"/></sheets>' +
-        '</workbook>';
-
-    // _rels/.rels
-    var relsXml =
-        '<?xml version="1.0"?>' +
-        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
-        '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>' +
-        '</Relationships>';
-
-    // xl/_rels/workbook.xml.rels
-    var workbookRelsXml =
-        '<?xml version="1.0"?>' +
-        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
-        '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>' +
-        '</Relationships>';
-
-    // content types
-    var contentTypesXml =
-        '<?xml version="1.0"?>' +
-        '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
-        '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
-        '<Default Extension="xml" ContentType="application/xml"/>' +
-        '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
-        '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>' +
-        '</Types>';
-
-    // arquivos do ZIP
-    var zipFiles = {
-        "_rels/.rels": relsXml,
-        "xl/workbook.xml": workbookXml,
-        "xl/_rels/workbook.xml.rels": workbookRelsXml,
-        "xl/worksheets/sheet1.xml": sheetXml,
-        "[Content_Types].xml": contentTypesXml
-    };
-
-    var zipBlob = generateSimpleZip(zipFiles);
-    downloadBlob(zipBlob, "relatorio_tarefas.xlsx");
-
-    setExportProgressVisible(false);
+        setExportProgressVisible(false);
+    });
 }
 
 // =======================
@@ -1121,9 +1093,9 @@ function applyGridFilterByResponsavel(responsavelNome) {
 function applyGridFilterByMonth(monthIndex) {
     if (!gridApi) return;
 
-    var currentYear = new Date().getFullYear();
+    var year = (typeof selectedOpenYear === 'number') ? selectedOpenYear : new Date().getFullYear();
 
-    // toggle: se clicar de novo no mesmo mês, limpa
+    // toggle
     if (gridFilterState.mode === 'mes' && gridFilterState.value === monthIndex) {
         gridFilterState.mode = null;
         gridFilterState.value = null;
@@ -1133,7 +1105,7 @@ function applyGridFilterByMonth(monthIndex) {
     }
 
     var filtered = currentOpenTasks.filter(function (t) {
-        return (t.createdYear === currentYear && t.createdMonth === monthIndex);
+        return (t.createdYear === year && t.createdMonth === monthIndex);
     });
 
     gridFilterState.mode = 'mes';
@@ -1142,6 +1114,20 @@ function applyGridFilterByMonth(monthIndex) {
     gridApi.setRowData(filtered);
     updateKpisForSubset(filtered);
 }
+
+function ensureSheetJs(callback) {
+    if (window.XLSX) { callback(); return; }
+
+    var s = document.createElement('script');
+    s.src = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+    s.onload = function () { callback(); };
+    s.onerror = function () {
+        setExportProgressVisible(false);
+        alert("Não consegui carregar a biblioteca XLSX (bloqueio de rede/CSP). Use CSV ou hospede o arquivo xlsx.full.min.js localmente.");
+    };
+    document.head.appendChild(s);
+}
+
 
 // =======================
 // CLASSIFICAÇÃO TIPO (lógica do BI)
@@ -1240,6 +1226,169 @@ function formatMinutesToHHMMSS(totalMinutes) {
     return pad(hours) + ":" + pad(minutes) + ":" + seconds.toString().padStart(2, "0");
 }
 
+// =======================
+// FILTRO DE ANO (NOVO) - Chamados por mês
+// =======================
+var selectedOpenYear = null;
+
+function getAvailableOpenYears(tasks) {
+    var yearsMap = {};
+    (tasks || []).forEach(function (t) {
+        if (typeof t.createdYear === 'number') yearsMap[t.createdYear] = true;
+    });
+
+    return Object.keys(yearsMap)
+        .map(function (y) { return parseInt(y, 10); })
+        .filter(function (y) { return !isNaN(y); })
+        .sort(function (a, b) { return b - a; }); // desc
+}
+
+function pickDefaultYear(years) {
+    var current = new Date().getFullYear();
+    if (years.indexOf(current) !== -1) return current;
+    return years.length ? years[0] : current;
+}
+
+function ensureOpenYearSelect(years) {
+    var chartEl = document.getElementById('chart-open-by-month');
+    if (!chartEl) return;
+
+    var wrapperId = 'chart-open-by-month-year-wrapper';
+    var selectId = 'chart-open-by-month-year';
+
+    var wrapper = document.getElementById(wrapperId);
+    if (!wrapper) {
+        wrapper = document.createElement('div');
+        wrapper.id = wrapperId;
+        wrapper.style.display = 'flex';
+        wrapper.style.justifyContent = 'flex-end';
+        wrapper.style.alignItems = 'center';
+        wrapper.style.gap = '8px';
+        wrapper.style.margin = '0 0 8px 0';
+
+        var label = document.createElement('span');
+        label.textContent = 'Ano:';
+
+        var select = document.createElement('select');
+        select.id = selectId;
+
+        wrapper.appendChild(label);
+        wrapper.appendChild(select);
+
+        // insere o seletor acima do gráfico
+        chartEl.parentNode.insertBefore(wrapper, chartEl);
+    }
+
+    var selectEl = document.getElementById(selectId);
+    if (!selectEl) return;
+
+    selectEl.innerHTML = '';
+    years.forEach(function (y) {
+        var opt = document.createElement('option');
+        opt.value = String(y);
+        opt.textContent = String(y);
+        selectEl.appendChild(opt);
+    });
+
+    if (selectedOpenYear === null || years.indexOf(selectedOpenYear) === -1) {
+        selectedOpenYear = pickDefaultYear(years);
+    }
+    selectEl.value = String(selectedOpenYear);
+
+    if (!selectEl._boundChange) {
+        selectEl.addEventListener('change', function () {
+            selectedOpenYear = parseInt(this.value, 10);
+
+            // se tinha filtro de mês aplicado, limpa (pra não “prender” o grid em outro ano)
+            if (gridFilterState.mode === 'mes') {
+                gridFilterState.mode = null;
+                gridFilterState.value = null;
+                if (gridApi) gridApi.setRowData(currentOpenTasks);
+                updateKpisForSubset(currentOpenTasks);
+            }
+
+            // atualiza só o gráfico de mês (sem mexer nos outros)
+            renderOpenByMonthChart(currentOpenTasks);
+        });
+        selectEl._boundChange = true;
+    }
+}
+
+function renderOpenByMonthChart(openTasks) {
+    if (!chartOpenByMonth) return;
+
+    var years = getAvailableOpenYears(openTasks);
+    ensureOpenYearSelect(years);
+
+    if (!years.length) {
+        chartOpenByMonth.clear();
+        return;
+    }
+
+    var year = (typeof selectedOpenYear === 'number') ? selectedOpenYear : pickDefaultYear(years);
+
+    // conta por mês (0..11) para o ANO selecionado
+    var countsByIdx = new Array(12).fill(0);
+    (openTasks || []).forEach(function (t) {
+        if (t.createdYear === year && typeof t.createdMonth === 'number') {
+            countsByIdx[t.createdMonth] += 1;
+        }
+    });
+
+    var monthLabels = [];
+    for (var m = 0; m < 12; m++) {
+        monthLabels.push(
+            normalizeMonthLabel(new Date(2000, m, 1).toLocaleString("pt-BR", { month: "short" }))
+        );
+    }
+
+    // só mostra meses com valor > 0
+    var months = [];
+    var values = [];
+    var monthIndexMap = [];
+
+    for (var i = 0; i < 12; i++) {
+        if (countsByIdx[i] > 0) {
+            months.push(monthLabels[i]);
+            values.push(countsByIdx[i]);
+            monthIndexMap.push(i);
+        }
+    }
+
+    var optionOpen = {
+        grid: { left: 30, right: 10, top: 20, bottom: 30 },
+        xAxis: { type: 'category', data: months },
+        yAxis: { type: 'value' },
+        series: [{
+            type: 'bar',
+            data: values,
+            barWidth: '50%',
+            itemStyle: { borderRadius: [4, 4, 0, 0] },
+            label: {
+                show: true,
+                position: 'top',
+                color: '#FFFFFF',
+                fontSize: 14,
+                fontWeight: 'normal',
+                textBorderColor: '#000',
+                textBorderWidth: 2
+            }
+        }]
+    };
+
+    chartOpenByMonth.setOption(optionOpen, true);
+
+    // click no mês -> filtra grid (toggle)
+    chartOpenByMonth.off('click');
+    chartOpenByMonth.on('click', function (params) {
+        if (!params) return;
+        var idx = params.dataIndex;
+        var monthIndex = monthIndexMap[idx];
+        if (typeof monthIndex !== 'number') return;
+        applyGridFilterByMonth(monthIndex); // agora respeita selectedOpenYear
+    });
+}
+
 function updateDashboard(openTasks) {
     if (!openTasks || openTasks.length === 0) {
         if (document.getElementById('kpi-abertos')) {
@@ -1269,71 +1418,12 @@ function updateDashboard(openTasks) {
     // =======================
     // Chamados por mês (ano atual) + CLICK para filtrar a lista
     // =======================
-    if (chartOpenByMonth) {
-        var currentYear = new Date().getFullYear();
+    // =======================
 
-        // conta por índice do mês (0..11)
-        var countsByIdx = new Array(12).fill(0);
+// Chamados por mês (COM FILTRO DE ANO)
+// =======================
+renderOpenByMonthChart(openTasks);
 
-        openTasks.forEach(function (t) {
-            if (t.createdYear === currentYear && typeof t.createdMonth === 'number') {
-                countsByIdx[t.createdMonth] += 1;
-            }
-        });
-
-        // labels em pt-BR, normalizadas
-        var monthLabels = [];
-        for (var m = 0; m < 12; m++) {
-            monthLabels.push(
-                normalizeMonthLabel(new Date(2000, m, 1).toLocaleString("pt-BR", { month: "short" }))
-            );
-        }
-
-        // só mostra meses que têm valor > 0 (mas mantendo ordem)
-        var months = [];
-        var values = [];
-        var monthIndexMap = []; // para saber qual índice corresponde a cada barra
-
-        for (var i = 0; i < 12; i++) {
-            if (countsByIdx[i] > 0) {
-                months.push(monthLabels[i]);
-                values.push(countsByIdx[i]);
-                monthIndexMap.push(i);
-            }
-        }
-
-        var optionOpen = {
-            grid: { left: 30, right: 10, top: 20, bottom: 30 },
-            xAxis: { type: 'category', data: months },
-            yAxis: { type: 'value' },
-            series: [{
-                type: 'bar',
-                data: values,
-                barWidth: '50%',
-                itemStyle: { borderRadius: [4, 4, 0, 0] },
-                label: {
-                    show: true,
-                    position: 'top',
-                    color: '#FFFFFF',
-                    fontSize: 14,
-                    fontWeight: 'normal',
-                    textBorderColor: '#000',
-                    textBorderWidth: 2
-                }
-            }]
-        };
-        chartOpenByMonth.setOption(optionOpen, true);
-
-        // CLICK no mês => filtra o grid pelos chamados daquele mês (toggle)
-        chartOpenByMonth.off('click');
-        chartOpenByMonth.on('click', function (params) {
-            if (!params) return;
-            var idx = params.dataIndex;
-            var monthIndex = monthIndexMap[idx];
-            if (typeof monthIndex !== 'number') return;
-            applyGridFilterByMonth(monthIndex);
-        });
-    }
 
     // =======================
     // Tipo de Tarefa
